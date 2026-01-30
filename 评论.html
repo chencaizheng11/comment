@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>评论系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 0 20px;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        
+        .comment-form {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            min-height: 100px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s ease;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #ff4400;
+            box-shadow: 0 0 0 2px rgba(255, 68, 0, 0.1);
+        }
+        
+        .form-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .word-count {
+            font-size: 14px;
+            color: #999;
+        }
+        
+        .word-count.warning {
+            color: #ff9800;
+        }
+        
+        .word-count.error {
+            color: #f44336;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background-color: #ff4400;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        
+        button:hover {
+            background-color: #ff6600;
+        }
+        
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .comment-list {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .comment-list h2 {
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: #333;
+        }
+        
+        .comment-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.3s ease;
+        }
+        
+        .comment-item:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .comment-item:last-child {
+            border-bottom: none;
+        }
+        
+        .comment-content {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        
+        .comment-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #999;
+        }
+        
+        .comment-time {
+            font-size: 11px;
+        }
+        
+        .comment-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .comment-actions button {
+            padding: 4px 10px;
+            font-size: 11px;
+            background-color: #f0f0f0;
+            color: #666;
+        }
+        
+        .comment-actions button:hover {
+            background-color: #e0e0e0;
+        }
+        
+        .no-comments {
+            text-align: center;
+            padding: 40px 0;
+            color: #999;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 20px auto;
+            }
+            
+            .comment-form,
+            .comment-list {
+                padding: 15px;
+            }
+            
+            textarea {
+                min-height: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>大头的王者悲惨历史</h1>
+        
+        <div class="comment-form">
+            <div class="form-group">
+                <textarea id="comment-input" maxlength="200" placeholder="请输入一条善意的评论"></textarea>
+            </div>
+            <div class="form-footer">
+                <span class="word-count" id="word-count">0/200字</span>
+                <button id="submit-btn">发布</button>
+            </div>
+        </div>
+        
+        <div class="comment-list">
+            <h2>评论列表</h2>
+            <div id="comment-container">
+                <div class="no-comments">暂无评论，快来发表第一条评论吧！</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        const commentInput = document.getElementById('comment-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const wordCount = document.getElementById('word-count');
+        const commentContainer = document.getElementById('comment-container');
+        const MAX_LENGTH = 200;
+        
+        // 初始化
+        function init() {
+            // 加载本地存储的评论
+            loadComments();
+            
+            // 添加事件监听器
+            commentInput.addEventListener('input', updateWordCount);
+            submitBtn.addEventListener('click', submitComment);
+            
+            // 初始更新字数统计
+            updateWordCount();
+        }
+        
+        // 更新字数统计
+        function updateWordCount() {
+            const length = commentInput.value.length;
+            wordCount.textContent = `${length}/${MAX_LENGTH}字`;
+            
+            // 移除所有样式类
+            wordCount.classList.remove('warning', 'error');
+            
+            // 添加警告或错误样式
+            if (length > MAX_LENGTH * 0.8) {
+                wordCount.classList.add('warning');
+            }
+            if (length >= MAX_LENGTH) {
+                wordCount.classList.add('error');
+            }
+            
+            // 禁用或启用提交按钮
+            submitBtn.disabled = length === 0 || length > MAX_LENGTH;
+        }
+        
+        // 提交评论
+        function submitComment() {
+            const content = commentInput.value.trim();
+            if (!content) return;
+            
+            // 创建评论对象
+            const comment = {
+                id: Date.now(),
+                content: content,
+                time: new Date().toLocaleString()
+            };
+            
+            // 保存评论
+            saveComment(comment);
+            
+            // 添加到评论列表
+            addCommentToDOM(comment);
+            
+            // 清空输入框
+            commentInput.value = '';
+            
+            // 更新字数统计
+            updateWordCount();
+        }
+        
+        // 保存评论到本地存储
+        function saveComment(comment) {
+            const comments = getComments();
+            comments.unshift(comment); // 添加到开头
+            localStorage.setItem('comments', JSON.stringify(comments));
+        }
+        
+        // 获取本地存储的评论
+        function getComments() {
+            const comments = localStorage.getItem('comments');
+            return comments ? JSON.parse(comments) : [];
+        }
+        
+        // 加载评论
+        function loadComments() {
+            const comments = getComments();
+            
+            if (comments.length === 0) {
+                commentContainer.innerHTML = '<div class="no-comments">暂无评论，快来发表第一条评论吧！</div>';
+                return;
+            }
+            
+            // 清空容器
+            commentContainer.innerHTML = '';
+            
+            // 添加评论到DOM
+            comments.forEach(comment => {
+                addCommentToDOM(comment);
+            });
+        }
+        
+        // 添加评论到DOM
+        function addCommentToDOM(comment) {
+            const commentElement = document.createElement('div');
+            commentElement.className = 'comment-item';
+            commentElement.innerHTML = `
+                <div class="comment-content">${comment.content}</div>
+                <div class="comment-meta">
+                    <span class="comment-time">${comment.time}</span>
+                    <div class="comment-actions">
+                        <button onclick="deleteComment(${comment.id})">删除</button>
+                    </div>
+                </div>
+            `;
+            
+            // 添加到容器
+            commentContainer.appendChild(commentElement);
+            
+            // 移除"暂无评论"提示
+            const noComments = document.querySelector('.no-comments');
+            if (noComments) {
+                noComments.remove();
+            }
+        }
+        
+        // 删除评论
+        function deleteComment(id) {
+            if (confirm('确定要删除这条评论吗？')) {
+                // 从本地存储删除
+                const comments = getComments();
+                const updatedComments = comments.filter(comment => comment.id !== id);
+                localStorage.setItem('comments', JSON.stringify(updatedComments));
+                
+                // 重新加载评论
+                loadComments();
+            }
+        }
+        // 初始化应用
+        init();
+    </script>
+</body>
+</html>
